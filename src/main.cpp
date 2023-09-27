@@ -34,21 +34,16 @@ constexpr float rotaryMultiplier = (rotaryAcceleration - 1) / (shortCutoff - lon
 constexpr float rotaryK = 1 - longCutoff * rotaryMultiplier;
 
 // a global variables to hold the last position
-static bool newFrequency = false;
+static bool frequencyChanged = false;
 static bool newWaveform = false;
-static bool newScale = false;
-static long lastRotaryPos = 0;
-static float curFrequency = 0.0;
-typedef struct {
-  uint32_t multiplier;
-  const char* name;
-} FrequencyScale;
-static FrequencyScale frequencyScales[] = {
-  { 1, "Hz " },
-  { 1000, "KHz" },
-  { 1000000, "MHz" }
+static bool newStep = false;
+static long curFrequency = 1;
+static const char* frequencyLabels[] = {
+  "Hz ", "KHz", "MHz"
 };
-static uint8_t curScale = 0;
+
+static long curStep = 1;
+constexpr long MaxStep = 1000000;
 
 typedef struct {
   uint8_t waveform;
@@ -70,28 +65,40 @@ void checkPosition()
 
 void refreshOutputs()
 {
-  if (newFrequency || newScale || newWaveform) {
-    Serial.print("Refreshing output: fx:"); Serial.print(newFrequency?"Y":"N");
-    Serial.print(" sc:"); Serial.print(newScale?"Y":"N");
-    Serial.print(" wf:"); Serial.print(newWaveform?"Y":"N");
-    Serial.println();
-  }
+  // if (frequencyChanged || newStep || newWaveform) {
+    // Serial.print("Refreshing output: fx:"); Serial.print(frequencyChanged?"Y":"N");
+    // Serial.print(" sc:"); Serial.print(newStep?"Y":"N");
+    // Serial.print(" wf:"); Serial.print(newWaveform?"Y":"N");
+    // Serial.println();
+  // }
 
-  if (newScale) {
-    curScale++;
-    if (curScale >= sizeof(frequencyScales)/sizeof(FrequencyScale)) {
-      curScale = 0;
+  if (newStep) {
+    curStep *= 10;
+    if (curStep > MaxStep) {
+      curStep = 1;
     }
-    curFrequency = frequencyScales[curScale].multiplier;
-    encoder->setPosition(1);
-    lcd.setCursor(13, 0);
-    lcd.print(frequencyScales[curScale].name);
+    lcd.setCursor(0, 1);
+    lcd.print("+       ");
+    lcd.setCursor(1, 1);
+    lcd.print(curStep);
   }
   
-  if (newFrequency || newScale) {
-    AD.setFrequency(curFrequency);
-    lcd.setCursor(4, 0);
-    lcd.print(curFrequency/(float)(frequencyScales[curScale].multiplier));
+  if (frequencyChanged) {
+    AD.setFrequency((float)curFrequency);
+
+    lcd.setCursor(13, 0);
+    int index = (sizeof(frequencyLabels)/sizeof(const char*))-1;
+    long mult = 1000000;
+    for (; index >= 0; index--, mult /= 1000) {
+      if (curFrequency/mult >= 1.0) {
+        break;
+      }
+    }
+    lcd.print(frequencyLabels[index]);
+    lcd.setCursor(3, 0);
+    lcd.print("          ");
+    lcd.setCursor(3, 0);
+    lcd.print((float)curFrequency/ mult, 6);
   } 
 
   if (newWaveform) {
@@ -103,7 +110,7 @@ void refreshOutputs()
     lcd.print(waveforms[curWaveform].name);
   }
 
-  newScale = newFrequency = newWaveform = false;
+  newStep = frequencyChanged = newWaveform = false;
 }
 
 void setup() {
@@ -121,10 +128,10 @@ void setup() {
   lcd.backlight();  // LCD
   lcd.setCursor(0, 0);
   lcd.print("Fx: ");
-    lcd.setCursor(13, 1);
-    lcd.print(waveforms[curWaveform].name);
-    lcd.setCursor(13, 0);
-    lcd.print(frequencyScales[curScale].name);
+  lcd.setCursor(13, 1);
+  lcd.print(waveforms[curWaveform].name);
+  lcd.setCursor(13, 0);
+  lcd.print(frequencyLabels[0]);
 
   // setup the rotary encoder functionality
 
@@ -152,11 +159,15 @@ void loop() {
   scaleButton.update();
   encoder->tick(); // just call tick() to check the state.
 
-  long newPos = encoder->getPosition();
-  if (lastRotaryPos != newPos) {
+  long newFrequency = encoder->getPosition();
+  if (curFrequency != newFrequency) {
+    Serial.print("Lst Pos: "); Serial.print(curFrequency);
+    Serial.print(" New Pos: "); Serial.println(newFrequency);
     // accelerate when there was a previous rotation in the same direction.
     unsigned long ms = encoder->getMillisBetweenRotations();
+    Serial.print("ms: "); Serial.println(ms);
 
+    long deltaTicks = 1;
     if (ms < longCutoff) {
       // do some acceleration using factors a and rotaryK
 
@@ -166,36 +177,35 @@ void loop() {
       }
 
       float ticksActual_float = rotaryMultiplier * ms + rotaryK;
-      long deltaTicks = (long)ticksActual_float * (newPos - lastRotaryPos);
-      newPos = newPos + deltaTicks;
+      long deltaTicks = (long)ticksActual_float * (newFrequency - curFrequency);
+      newFrequency = newFrequency + (deltaTicks * curStep);
+    }
+    else {
+      newFrequency = curFrequency + ((newFrequency - curFrequency) * curStep);
     }
 
-    if (newPos <= 0L) {
-      newPos = 1;
+    if (newFrequency <= 0L) {
+      newFrequency = 1;
     }
-
-    curFrequency = newPos * frequencyScales[curScale].multiplier;
-    if (curFrequency > (float)AD9833_MAX_FREQ) {
-      curFrequency = (float)AD9833_MAX_FREQ;
-      newPos = 13;
+    else if (newFrequency > AD9833_MAX_FREQ) {
+      newFrequency = AD9833_MAX_FREQ;
     }
-    encoder->setPosition(newPos);
+    encoder->setPosition(newFrequency);
 
-    Serial.print("new pos: ");
-    Serial.print(newPos);
-    Serial.print("  ms: ");
-    Serial.println(ms);
-    lastRotaryPos = newPos;
-    newFrequency = true;
-  } // if
+    frequencyChanged = true;
+    Serial.println("---");
+    Serial.print("Lst Pos: "); Serial.print(curFrequency);
+    Serial.print(" New Pos: "); Serial.println(newFrequency);
+    curFrequency = newFrequency;
+ } // if
 
   if (wfButton.fell()) {
-    Serial.println("Waveform Button pressed");
+    // Serial.println("Waveform Button pressed");
     newWaveform = true;
   }
 
   if (scaleButton.fell()) {
-    newScale = true;
+    newStep = true;
   }
 
   refreshOutputs();
