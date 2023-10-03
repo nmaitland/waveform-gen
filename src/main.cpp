@@ -14,10 +14,10 @@ LiquidCrystal_I2C lcd(0x27,16,2); //  0x3F or 0x27
 
 // A pointer to the dynamic created rotary encoder instance.
 // This will be done in setup()
-RotaryEncoder *encoder = nullptr;
+RotaryEncoder *rotaryEncoderPtr = nullptr;
 Bounce wfButton = Bounce();
 Bounce scaleButton = Bounce();
-AD9833 AD;
+AD9833 sigGen;
 
 // setup data for rotary encoder acceleration
 // the maximum acceleration is 10 times.
@@ -26,6 +26,8 @@ constexpr float rotaryAcceleration = 10;
 constexpr float longCutoff = 50;
 // at 5 ms, we want to have maximum acceleration (factor rotaryAcceleration)
 constexpr float shortCutoff = 5;
+
+constexpr long MaxAD9833Freq = AD9833_MAX_FREQ;
 
 // To derive the calc. constants, compute as follows:
 // On an x(ms) - y(factor) plane resolve a linear formula factor(ms) = rotaryMultiplier * ms + rotaryK;
@@ -60,7 +62,7 @@ static uint8_t curWaveform = 0;
 // This interrupt routine will be called on any change of one of the input signals
 void checkPosition()
 {
-  encoder->tick(); // just call tick() to check the state.
+  rotaryEncoderPtr->tick(); // just call tick() to check the state.
 }
 
 void refreshOutputs()
@@ -84,7 +86,7 @@ void refreshOutputs()
   }
   
   if (frequencyChanged) {
-    AD.setFrequency((float)curFrequency);
+    sigGen.setFrequency((float)curFrequency);
 
     lcd.setCursor(13, 0);
     int index = (sizeof(frequencyLabels)/sizeof(const char*))-1;
@@ -133,41 +135,36 @@ void setup() {
   lcd.setCursor(13, 0);
   lcd.print(frequencyLabels[0]);
 
-  // setup the rotary encoder functionality
+  // setup the rotary rotaryEncoderPtr functionality
 
   // use FOUR3 mode when PIN_IN1, PIN_IN2 signals are always HIGH in latch position.
-  // encoder = new RotaryEncoder(PIN_IN1, PIN_IN2, RotaryEncoder::LatchMode::FOUR3);
+  // rotaryEncoderPtr = new RotaryEncoder(PIN_IN1, PIN_IN2, RotaryEncoder::LatchMode::FOUR3);
 
   // use FOUR0 mode when PIN_IN1, PIN_IN2 signals are always LOW in latch position.
-  // encoder = new RotaryEncoder(PIN_IN1, PIN_IN2, RotaryEncoder::LatchMode::FOUR0);
+  // rotaryEncoderPtr = new RotaryEncoder(PIN_IN1, PIN_IN2, RotaryEncoder::LatchMode::FOUR0);
 
   // use TWO03 mode when PIN_IN1, PIN_IN2 signals are both LOW or HIGH in latch position.
-  encoder = new RotaryEncoder(PIN_IN1, PIN_IN2, RotaryEncoder::LatchMode::FOUR3);
+  rotaryEncoderPtr = new RotaryEncoder(PIN_IN1, PIN_IN2, RotaryEncoder::LatchMode::FOUR3);
 
   // register interrupt routine
   attachInterrupt(digitalPinToInterrupt(PIN_IN1), checkPosition, CHANGE);
   attachInterrupt(digitalPinToInterrupt(PIN_IN2), checkPosition, CHANGE);
 
   // AD.begin(10, 11, 13);  //  HW SPI, select pin 10
-  AD.begin(10, &SPI);
+  sigGen.begin(10, &SPI);
   Serial.println("AD9833 started");
-  encoder->setPosition(1);
+  rotaryEncoderPtr->setPosition(1);
 }
 
 void loop() {
   wfButton.update();
   scaleButton.update();
-  encoder->tick(); // just call tick() to check the state.
+  rotaryEncoderPtr->tick(); // just call tick() to check the state.
 
-  long newFrequency = encoder->getPosition();
+  long newFrequency = rotaryEncoderPtr->getPosition();
   if (curFrequency != newFrequency) {
-    Serial.print("Lst Pos: "); Serial.print(curFrequency);
-    Serial.print(" New Pos: "); Serial.println(newFrequency);
     // accelerate when there was a previous rotation in the same direction.
-    unsigned long ms = encoder->getMillisBetweenRotations();
-    Serial.print("ms: "); Serial.println(ms);
-
-    long deltaTicks = 1;
+    unsigned long ms = rotaryEncoderPtr->getMillisBetweenRotations();
     if (ms < longCutoff) {
       // do some acceleration using factors a and rotaryK
 
@@ -187,15 +184,12 @@ void loop() {
     if (newFrequency <= 0L) {
       newFrequency = 1;
     }
-    else if (newFrequency > AD9833_MAX_FREQ) {
-      newFrequency = AD9833_MAX_FREQ;
+    else if (newFrequency > MaxAD9833Freq) {
+      newFrequency = MaxAD9833Freq;
     }
-    encoder->setPosition(newFrequency);
+    rotaryEncoderPtr->setPosition(newFrequency);
 
     frequencyChanged = true;
-    Serial.println("---");
-    Serial.print("Lst Pos: "); Serial.print(curFrequency);
-    Serial.print(" New Pos: "); Serial.println(newFrequency);
     curFrequency = newFrequency;
  } // if
 
