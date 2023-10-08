@@ -67,12 +67,12 @@ void checkPosition()
 
 void refreshOutputs()
 {
-  // if (frequencyChanged || newStep || newWaveform) {
-    // Serial.print("Refreshing output: fx:"); Serial.print(frequencyChanged?"Y":"N");
-    // Serial.print(" sc:"); Serial.print(newStep?"Y":"N");
-    // Serial.print(" wf:"); Serial.print(newWaveform?"Y":"N");
-    // Serial.println();
-  // }
+  if (frequencyChanged || newStep || newWaveform) {
+    Serial.print("Refreshing output: fx:"); Serial.print(frequencyChanged?"Y":"N");
+    Serial.print(" sc:"); Serial.print(newStep?"Y":"N");
+    Serial.print(" wf:"); Serial.print(newWaveform?"Y":"N");
+    Serial.println();
+  }
 
   if (newStep) {
     curStep *= 10;
@@ -83,6 +83,7 @@ void refreshOutputs()
     lcd.print("+       ");
     lcd.setCursor(1, 1);
     lcd.print(curStep);
+    Serial.print("New step:"); Serial.println(curStep);
   }
   
   if (frequencyChanged) {
@@ -101,6 +102,7 @@ void refreshOutputs()
     lcd.print("          ");
     lcd.setCursor(3, 0);
     lcd.print((float)curFrequency/ mult, 6);
+    Serial.print("New fx:"); Serial.println(curFrequency);
   } 
 
   if (newWaveform) {
@@ -110,6 +112,8 @@ void refreshOutputs()
     }
     lcd.setCursor(13, 1);
     lcd.print(waveforms[curWaveform].name);
+    Serial.print("New wf:"); Serial.println(waveforms[curWaveform].name);
+    sigGen.setWave(waveforms[curWaveform].waveform);
   }
 
   newStep = frequencyChanged = newWaveform = false;
@@ -152,6 +156,7 @@ void setup() {
 
   // AD.begin(10, 11, 13);  //  HW SPI, select pin 10
   sigGen.begin(10, &SPI);
+  sigGen.setWave(AD9833_OFF);
   Serial.println("AD9833 started");
   rotaryEncoderPtr->setPosition(1);
 }
@@ -194,7 +199,7 @@ void loop() {
  } // if
 
   if (wfButton.fell()) {
-    // Serial.println("Waveform Button pressed");
+    Serial.println("Waveform Button pressed");
     newWaveform = true;
   }
 
