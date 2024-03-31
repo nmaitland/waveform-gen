@@ -1,0 +1,16 @@
+{
+  "name": "ad9833",
+  "author": "Neil Maitland",
+  "pins": [
+    "REF", 
+    "VCC",
+    "GND",
+    "DAT",
+    "CLK",
+    "FNC", 
+    "OUT",
+    "MISO"
+  ],
+  "controls": []
+}
+

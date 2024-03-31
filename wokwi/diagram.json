@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "author": "Neil Maitland",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "wokwi-arduino-nano", "id": "nano", "top": 2.93, "left": -82.15, "attrs": {} },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "btn1",
+      "top": -109,
+      "left": -240,
+      "attrs": { "color": "green" }
+    },
+    { "type": "wokwi-ky-040", "id": "encoder1", "top": -213.94, "left": -159.59, "attrs": {} },
+    {
+      "type": "wokwi-lcd1602",
+      "id": "lcd1",
+      "top": 149.48,
+      "left": -230.07,
+      "attrs": { "pins": "i2c" }
+    },
+    { "type": "wokwi-potentiometer", "id": "pot1", "top": -259.45, "left": 199.15, "attrs": {} },
+    { "type": "chip-ad9833", "id": "chip1", "top": -4.63, "left": -308, "attrs": {} }
+  ],
+  "connections": [
+    [ "nano:GND.1", "lcd1:GND", "black", [ "v65.24", "h-297.58", "v92.61" ] ],
+    [ "nano:5V", "lcd1:VCC", "red", [ "v44.86", "h-289.71", "v80.79" ] ],
+    [ "nano:A4", "lcd1:SDA", "blue", [ "v22.99", "h-261.51", "v112.16" ] ],
+    [ "nano:A5", "lcd1:SCL", "violet", [ "v30.4", "h-283.97", "v114.25" ] ],
+    [ "encoder1:GND", "nano:GND.2", "black", [ "h0" ] ],
+    [ "encoder1:VCC", "nano:5V", "red", [ "h155.68", "v229.66", "h-71.92" ] ],
+    [ "encoder1:SW", "nano:4", "green", [ "h0" ] ],
+    [ "encoder1:DT", "nano:3", "green", [ "h0" ] ],
+    [ "encoder1:CLK", "nano:2", "green", [ "h0" ] ],
+    [ "btn1:2.l", "nano:9", "gold", [ "h-17.13", "v24.1", "h195.83" ] ],
+    [ "btn1:1.r", "nano:GND.2", "black", [ "h41.19", "v-0.49", "h191.81" ] ],
+    [ "chip1:VCC", "lcd1:VCC", "red", [ "h-23.31", "v206.61" ] ],
+    [ "chip1:GND", "lcd1:GND", "black", [ "h-15.56", "v187.51" ] ],
+    [ "chip1:DAT", "nano:11", "green", [ "v24.78", "h175.62", "v-70.14", "h74.73" ] ],
+    [ "chip1:CLK", "nano:13", "green", [ "v45.38", "h136.96" ] ],
+    [ "chip1:FNC", "nano:10", "green", [ "h55.33", "v-46.87", "h100.83" ] ],
+    [ "chip1:MISO", "nano:12", "green", [ "h29.68", "v-7.88", "h108.62", "v9.47", "h-1.34" ] ]
+  ],
+  "dependencies": {}
+}

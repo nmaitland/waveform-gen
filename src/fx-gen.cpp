@@ -3,9 +3,11 @@
 #include <Bounce2.h>
 #include <AD9833.h>
 #include <SPI.h>
+#include <Arduino_DebugUtils.h>
 
-LiquidCrystal_I2C lcd(0x27,16,2); //  0x3F or 0x27
+LiquidCrystal_I2C lcd(0x27, 16, 2); //  0x3F or 0x27
 
+// rotary encoder pins
 #define PIN_IN1 2
 #define PIN_IN2 3
 
@@ -17,7 +19,7 @@ LiquidCrystal_I2C lcd(0x27,16,2); //  0x3F or 0x27
 RotaryEncoder *rotaryEncoderPtr = nullptr;
 Bounce wfButton = Bounce();
 Bounce scaleButton = Bounce();
-AD9833 sigGen;
+AD9833 sigGen(10, &SPI);
 
 // setup data for rotary encoder acceleration
 // the maximum acceleration is 10 times.
@@ -68,10 +70,13 @@ void checkPosition()
 void refreshOutputs()
 {
   if (frequencyChanged || newStep || newWaveform) {
-    Serial.print("Refreshing output: fx:"); Serial.print(frequencyChanged?"Y":"N");
-    Serial.print(" sc:"); Serial.print(newStep?"Y":"N");
-    Serial.print(" wf:"); Serial.print(newWaveform?"Y":"N");
-    Serial.println();
+    Debug.newlineOff();
+    DEBUG_VERBOSE("Refreshing output: fx:"); DEBUG_VERBOSE(frequencyChanged?"Y":"N");
+    DEBUG_VERBOSE(" sc:"); DEBUG_VERBOSE(newStep?"Y":"N");
+    DEBUG_VERBOSE(" wf:"); DEBUG_VERBOSE(newWaveform?"Y":"N");
+    Debug.newlineOn();
+    DEBUG_VERBOSE("");
+
   }
 
   if (newStep) {
@@ -83,7 +88,7 @@ void refreshOutputs()
     lcd.print("+       ");
     lcd.setCursor(1, 1);
     lcd.print(curStep);
-    Serial.print("New step:"); Serial.println(curStep);
+    DEBUG_VERBOSE("New step:");
   }
   
   if (frequencyChanged) {
@@ -102,7 +107,7 @@ void refreshOutputs()
     lcd.print("          ");
     lcd.setCursor(3, 0);
     lcd.print((float)curFrequency/ mult, 6);
-    Serial.print("New fx:"); Serial.println(curFrequency);
+    DEBUG_VERBOSE("New fx:");
   } 
 
   if (newWaveform) {
@@ -112,7 +117,7 @@ void refreshOutputs()
     }
     lcd.setCursor(13, 1);
     lcd.print(waveforms[curWaveform].name);
-    Serial.print("New wf:"); Serial.println(waveforms[curWaveform].name);
+    DEBUG_VERBOSE("New wf:");
     sigGen.setWave(waveforms[curWaveform].waveform);
   }
 
@@ -124,6 +129,7 @@ void setup() {
   while (!Serial)
     ;
   Serial.println("Starting");
+  Debug.setDebugLevel(DBG_INFO);
 
   wfButton.attach(9, INPUT_PULLUP);
   wfButton.interval(25);
@@ -140,23 +146,14 @@ void setup() {
   lcd.print(frequencyLabels[0]);
 
   // setup the rotary rotaryEncoderPtr functionality
-
-  // use FOUR3 mode when PIN_IN1, PIN_IN2 signals are always HIGH in latch position.
-  // rotaryEncoderPtr = new RotaryEncoder(PIN_IN1, PIN_IN2, RotaryEncoder::LatchMode::FOUR3);
-
-  // use FOUR0 mode when PIN_IN1, PIN_IN2 signals are always LOW in latch position.
-  // rotaryEncoderPtr = new RotaryEncoder(PIN_IN1, PIN_IN2, RotaryEncoder::LatchMode::FOUR0);
-
-  // use TWO03 mode when PIN_IN1, PIN_IN2 signals are both LOW or HIGH in latch position.
   rotaryEncoderPtr = new RotaryEncoder(PIN_IN1, PIN_IN2, RotaryEncoder::LatchMode::FOUR3);
 
   // register interrupt routine
   attachInterrupt(digitalPinToInterrupt(PIN_IN1), checkPosition, CHANGE);
   attachInterrupt(digitalPinToInterrupt(PIN_IN2), checkPosition, CHANGE);
 
-  // AD.begin(10, 11, 13);  //  HW SPI, select pin 10
-  sigGen.begin(10, &SPI);
-  sigGen.setWave(AD9833_OFF);
+  SPI.begin();
+  sigGen.begin();
   Serial.println("AD9833 started");
   rotaryEncoderPtr->setPosition(1);
 }
@@ -196,10 +193,10 @@ void loop() {
 
     frequencyChanged = true;
     curFrequency = newFrequency;
- } // if
+  } 
 
   if (wfButton.fell()) {
-    Serial.println("Waveform Button pressed");
+    DEBUG_VERBOSE("Waveform Button pressed");
     newWaveform = true;
   }
 
