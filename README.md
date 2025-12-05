@@ -1,92 +1,217 @@
-# waveform-gen
+# Waveform Generator with AD9833
 
+A microcontroller-based waveform generator using the AD9833 DDS chip, featuring a rotary encoder interface and LCD display. Built with PlatformIO for Arduino-compatible boards. The project includes both embedded firmware and Wokwi simulation support.
 
+## Features
 
-## Getting started
+- **Waveform Types**: Sine, Square, and Triangle waves
+- **Frequency Range**: 1Hz to 12.5MHz
+- **Adjustable Step Sizes**: 1, 10, 100, 1K, 10K, 100K, 1M
+- **Interactive Interface**:
+  - Rotary encoder for frequency adjustment with acceleration
+  - Push buttons for waveform selection and step size adjustment
+  - 16x2 LCD display showing frequency and settings
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+## Hardware Requirements (Embedded Version)
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+- Arduino Nano (ATmega328) or compatible board
+- AD9833 DDS Module
+- 16x2 I2C LCD Display
+- Rotary Encoder with push button
+- 2x Push buttons
+- Connecting wires
 
-## Add your files
+## PlatformIO Configuration
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
-
+This project is configured for Arduino Nano (ATmega328). To change the target board, modify `platformio.ini`:
+```ini
+[env:nanoatmega328]
+platform = atmelavr
+board = nanoatmega328  ; Change this for different board
+framework = arduino
 ```
-cd existing_repo
-git remote add origin https://gitlab.com/nemach-embedded/waveform-gen.git
-git branch -M main
-git push -uf origin main
+
+## Pin Connections
+
+| Component | Arduino Pin |
+|-----------|-------------|
+| Rotary Encoder CLK | D2 |
+| Rotary Encoder DT | D3 |
+| Waveform Button | D9 |
+| Scale/Step Button | D4 |
+| AD9833 FSYNC (SS) | D10 |
+| AD9833 SCLK | D13 (SCK) |
+| AD9833 SDATA | D11 (MOSI) |
+| I2C SDA | A4 (SDA) |
+| I2C SCL | A5 (SCL) |
+
+## Wokwi Simulation
+
+The project includes a Wokwi simulation that mimics the hardware behavior:
+
+- Located in the `/wokwi` directory
+- Simulates the AD9833 chip behavior
+- Includes a virtual oscilloscope for waveform visualization
+- Uses the same codebase with conditional compilation for simulation
+
+### Running the Simulation
+
+1. Open the project in Wokwi
+2. The simulation will start automatically
+3. Use the virtual rotary encoder and buttons to control the waveform generator
+
+## Dependencies
+
+- [RotaryEncoder](https://github.com/mathertel/RotaryEncoder)
+- [Bounce2](https://github.com/thomasfredericks/Bounce2)
+- [AD9833](https://github.com/billwilliams1952/AD9833-Library)
+- [LiquidCrystal_I2C](https://github.com/johnrickman/LiquidCrystal_I2C)
+- [Arduino_DebugUtils](https://github.com/arduino-libraries/Arduino_DebugUtils)
+
+## Building and Flashing
+
+### Using Make (Recommended)
+```bash
+# Install PlatformIO and build
+make install
+make build
+
+# Upload to device
+make upload
+
+# Build and see hex file location
+make hex
 ```
 
-## Integrate with your tools
+### Manual Build
+```bash
+# Create virtual environment and install PlatformIO
+python -m venv .venv
+.venv\Scripts\pip install -r requirements.txt
 
-- [ ] [Set up project integrations](https://gitlab.com/nemach-embedded/waveform-gen/-/settings/integrations)
+# Build project
+.venv\Scripts\platformio run
 
-## Collaborate with your team
+# Upload to device
+.venv\Scripts\platformio run --target upload
+```
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+### Windows Batch File Alternative
+```cmd
+# Run batch build script
+build_pio.bat
+```
 
-## Test and Deploy
+## Testing
 
-Use the built-in continuous integration in GitLab.
+This project includes a comprehensive native test suite that verifies core calculation logic without requiring hardware.
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing(SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+### Running Tests Locally (Windows)
 
-***
+Using Docker (recommended - no gcc installation needed):
+```cmd
+# Requires Docker Desktop to be running
+test_pio.bat
+```
 
-# Editing this README
+After running tests, a code coverage report is generated:
+- **Coverage summary**: Displayed in terminal output
+- **HTML report**: `coverage-report/index.html` (open in browser)
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thank you to [makeareadme.com](https://www.makeareadme.com/) for this template.
+### Running Tests in CI/CD
 
-## Suggestions for a good README
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+The GitLab CI pipeline automatically runs tests on every push:
+- **Native tests**: 13 unit tests covering frequency calculations and utilities
+- **Compilation tests**: Verifies firmware compiles for Arduino Nano
+- **Test reporting**: Results displayed in merge requests with pass/fail details
+- **Code coverage**: Coverage percentage shown in MRs with detailed HTML reports
 
-## Name
-Choose a self-explaining name for your project.
+### Test Coverage
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
-
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+The test suite verifies:
+- Frequency scale detection (Hz/KHz/MHz)
+- Frequency clamping to valid ranges (1Hz - 12.5MHz)
+- Step value cycling (1→10→100→...→1M→1)
+- Frequency divisor calculations
 
 ## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+1. Power on the device
+2. The LCD will display the current frequency and waveform
+3. Rotate the encoder to adjust frequency
+4. Press the waveform button to cycle through available waveforms
+5. Press the scale button to change the frequency step size
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+## Project Structure
+
+```
+waveform-gen/
+├── src/                      # Main source code
+│   └── fx-gen.cpp            # Main firmware
+├── include/                  # Header files
+│   └── waveform_utils.h      # Testable utility functions
+├── test/                     # Test suite
+│   └── test_native/          # Native unit tests
+│       └── test_waveform_utils.cpp
+├── wokwi/                    # Wokwi simulation files
+│   ├── ad9833.chip.c         # AD9833 simulation
+│   ├── sketch.ino            # Simulation entry point
+│   └── diagram.json          # Wokwi circuit diagram
+├── platformio.ini            # PlatformIO configuration
+├── .gitlab-ci.yml            # CI/CD pipeline configuration
+├── docker-compose.yml        # Docker test environment
+├── build_pio.bat             # Windows build script
+├── test_pio.bat              # Windows test script (Docker)
+└── requirements.txt          # Python dependencies
+```
+
+## CI/CD Pipeline
+
+This project uses GitLab CI/CD for automated testing and deployment:
+
+### Pipeline Stages
+
+1. **Test Stage**
+   - Native unit tests (13 tests covering core logic)
+   - Firmware compilation for Arduino Nano
+   - Memory usage reporting
+
+2. **Build Stage** (tags only)
+   - Release artifact generation (.hex and .elf files)
+   - Version tagging
+
+3. **Deploy Stage**
+   - GitLab Pages deployment with downloadable firmware
+   - Test results visualization in merge requests
+
+### Viewing Test Results
+
+Test results are automatically displayed in merge requests:
+- **Test Summary**: Widget shows pass/fail counts
+- **Test Details**: Available in "Tests" tab with execution times
+- **Code Coverage**: Coverage percentage badge in MR overview
+- **Coverage Report**: Download HTML coverage report from pipeline artifacts
 
 ## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+Contributions are welcome! To contribute:
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes and ensure tests pass
+4. Commit your changes (`git commit -m 'Add amazing feature'`)
+5. Push to the branch (`git push origin feature/amazing-feature`)
+6. Open a merge request
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+### Development Setup
+
+1. Install dependencies: `pip install -r requirements.txt`
+2. Run tests locally: `test_pio.bat` (Windows with Docker)
+3. Build firmware: `build_pio.bat` or `make build`
+4. Ensure CI pipeline passes before submitting MR
 
 ## License
-For open source projects, say how it is licensed.
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+This means you are free to use, modify, and distribute this software, even commercially, as long as you include the original copyright notice.
