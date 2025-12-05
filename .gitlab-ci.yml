@@ -1,0 +1,151 @@
+# GitLab CI Configuration for PlatformIO
+
+# Default Docker image with Python and build tools
+image: python:3.11
+
+stages:
+  - test
+  - build
+  - deploy
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+# Cache pip packages and PlatformIO
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - .cache/pip
+    - .platformio
+
+# Use requirements.txt for consistent PlatformIO version
+before_script:
+  - echo "Setting up build environment..."
+  - apt-get update && apt-get install -y gcc g++ make git lcov
+  - echo "Installing PlatformIO..."
+  - python -m pip install --upgrade pip
+  - pip install -r requirements.txt
+
+# Run native tests (no hardware required)
+test_native:
+  stage: test
+  script:
+    - echo "Running native unit tests..."
+    - platformio test -e native --verbose --junit-output-path=test-results.xml
+    - echo "Generating coverage report..."
+    - lcov --capture --directory .pio/build/native --output-file coverage.info
+    - lcov --remove coverage.info '*/test/*' '*/Unity/*' --output-file coverage.info
+    - lcov --list coverage.info
+    - genhtml coverage.info --output-directory coverage-report
+    - echo "Coverage report generated in coverage-report/"
+  coverage: '/lines\.*: (\d+\.\d+)%/'
+  artifacts:
+    when: always
+    paths:
+      - .pio/build/native/
+      - test-results.xml
+      - coverage.info
+      - coverage-report/
+    reports:
+      junit: test-results.xml
+    expire_in: 1 week
+  allow_failure: false
+
+# Compile for target hardware and generate memory report
+test_compile:
+  stage: test
+  script:
+    - echo "Compiling firmware for Arduino Nano..."
+    - platformio run -e nanoatmega328
+    - echo "Generating memory usage report..."
+    - platformio run -e nanoatmega328 -t size > memory_output.txt 2>&1 || true
+    - echo "## Memory Usage Report" > memory_report.md
+    - cat memory_output.txt >> memory_report.md
+  artifacts:
+    paths:
+      - .pio/build/nanoatmega328/
+      - memory_report.md
+      - memory_output.txt
+    expire_in: 1 week
+
+# Build release artifacts (only on tags)
+build_release:
+  stage: build
+  script:
+    - echo "Building release firmware..."
+    - platformio run -e nanoatmega328
+    - mkdir -p release
+    - cp .pio/build/nanoatmega328/firmware.hex release/
+    - cp .pio/build/nanoatmega328/firmware.elf release/
+    - echo "Release $CI_COMMIT_TAG" > release/version.txt
+    - ls -lh release/
+  artifacts:
+    paths:
+      - release/
+    expire_in: 1 year
+  only:
+    - tags
+
+# GitLab Pages deployment
+pages:
+  stage: deploy
+  dependencies:
+    - test_compile
+    - build_release
+  script:
+    - echo "Deploying documentation and artifacts..."
+    - mkdir -p public
+
+    # Create HTML page
+    - echo "<!DOCTYPE html>" > public/index.html
+    - echo "<html><head><title>Waveform Generator</title>" >> public/index.html
+    - echo "<style>body{font-family:Arial,sans-serif;max-width:800px;margin:50px auto;padding:20px;}</style>" >> public/index.html
+    - echo "</head><body>" >> public/index.html
+    - echo "<h1>Waveform Generator - AD9833</h1>" >> public/index.html
+
+    # Add build information
+    - echo "<h2>Build Information</h2>" >> public/index.html
+    - echo "<ul>" >> public/index.html
+    - echo "<li><strong>Commit:</strong> $CI_COMMIT_SHORT_SHA</li>" >> public/index.html
+    - echo "<li><strong>Branch:</strong> $CI_COMMIT_REF_NAME</li>" >> public/index.html
+    - echo "<li><strong>Date:</strong> $(date)</li>" >> public/index.html
+    - echo "</ul>" >> public/index.html
+
+    # Add firmware download links if available
+    - echo "<h2>Firmware Downloads</h2>" >> public/index.html
+    - |
+      if [ -f "release/firmware.hex" ]; then
+        echo "<h3>Release Build (Tagged)</h3>" >> public/index.html
+        echo "<ul>" >> public/index.html
+        echo "<li><a href='firmware.hex'>Download HEX</a></li>" >> public/index.html
+        echo "<li><a href='firmware.elf'>Download ELF</a></li>" >> public/index.html
+        echo "</ul>" >> public/index.html
+        cp release/firmware.hex public/
+        cp release/firmware.elf public/
+      elif [ -f ".pio/build/nanoatmega328/firmware.hex" ]; then
+        echo "<h3>Development Build</h3>" >> public/index.html
+        echo "<ul>" >> public/index.html
+        echo "<li><a href='firmware.hex'>Download HEX (latest)</a></li>" >> public/index.html
+        echo "<li><a href='firmware.elf'>Download ELF (latest)</a></li>" >> public/index.html
+        echo "</ul>" >> public/index.html
+        cp .pio/build/nanoatmega328/firmware.hex public/
+        cp .pio/build/nanoatmega328/firmware.elf public/
+      else
+        echo "<p>No firmware artifacts available for this build.</p>" >> public/index.html
+      fi
+
+    # Link to README
+    - echo "<h2>Documentation</h2>" >> public/index.html
+    - echo "<ul><li><a href='README.html'>Project README</a></li></ul>" >> public/index.html
+    - echo "</body></html>" >> public/index.html
+
+    # Convert README to simple HTML
+    - cp README.md public/README.html
+
+  artifacts:
+    paths:
+      - public
+    expire_in: 1 year
+  only:
+    - main
+    - tags

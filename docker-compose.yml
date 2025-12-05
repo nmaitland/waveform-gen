@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  platformio:
+    image: python:3.11-slim
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+      - platformio-cache:/root/.platformio
+    environment:
+      - PLATFORMIO_CORE_DIR=/root/.platformio
+    command: >
+      bash -c "
+        apt-get update && apt-get install -y gcc g++ make git lcov &&
+        pip install -r requirements.txt &&
+        platformio test -e native --verbose --junit-output-path=test-results.xml &&
+        echo 'Generating coverage report...' &&
+        lcov --capture --directory .pio/build/native --output-file coverage.info &&
+        lcov --remove coverage.info '*/test/*' '*/Unity/*' --output-file coverage.info &&
+        lcov --list coverage.info &&
+        genhtml coverage.info --output-directory coverage-report &&
+        echo 'Coverage report: coverage-report/index.html'
+      "
+
+volumes:
+  platformio-cache:
