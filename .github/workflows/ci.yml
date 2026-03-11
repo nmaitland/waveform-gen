@@ -1,0 +1,143 @@
+name: PlatformIO CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["*"]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y lcov
+          pip install -r requirements.txt
+
+      - name: Run native tests
+        run: platformio test -e native --verbose --junit-output-path=test-results.xml
+
+      - name: Generate coverage report
+        run: |
+          lcov --capture --directory .pio/build/native --output-file coverage.info || true
+          lcov --remove coverage.info '*/test/*' '*/Unity/*' --output-file coverage.info || true
+          genhtml coverage.info --output-directory coverage-report || true
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test-results.xml
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage-report/
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install PlatformIO
+        run: pip install -r requirements.txt
+
+      - name: Compile for Arduino Nano
+        run: platformio run -e nanoatmega328
+
+      - name: Upload firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware
+          path: |
+            .pio/build/nanoatmega328/firmware.hex
+            .pio/build/nanoatmega328/firmware.elf
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [test, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install PlatformIO
+        run: pip install -r requirements.txt
+
+      - name: Build release firmware
+        run: platformio run -e nanoatmega328
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            .pio/build/nanoatmega328/firmware.hex
+            .pio/build/nanoatmega328/firmware.elf
+
+  pages:
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
+    needs: [build]
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download firmware artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: firmware
+          path: firmware/
+
+      - name: Build pages
+        run: |
+          mkdir -p public
+          cat > public/index.html <<'HTMLEOF'
+          <!DOCTYPE html>
+          <html><head><title>Waveform Generator</title>
+          <style>body{font-family:Arial,sans-serif;max-width:800px;margin:50px auto;padding:20px;}</style>
+          </head><body>
+          <h1>Waveform Generator - AD9833</h1>
+          <h2>Firmware Downloads</h2>
+          <ul>
+          <li><a href="firmware.hex">Download HEX</a></li>
+          <li><a href="firmware.elf">Download ELF</a></li>
+          </ul>
+          <h2>Documentation</h2>
+          <ul><li><a href="https://github.com/nmaitland/waveform-gen">Project README</a></li></ul>
+          </body></html>
+          HTMLEOF
+          cp firmware/firmware.hex public/ 2>/dev/null || true
+          cp firmware/firmware.elf public/ 2>/dev/null || true
+
+      - name: Upload pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public/
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
